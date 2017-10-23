@@ -3,14 +3,14 @@ My implementation of malloc family.
 Design overview:
 I use double linked list to manage memory block. The reason why I use double linked list is it allows us to make a fast delete and insertion. Every memory block has a header block. The definition of Header is:
 typedef struct MallocBlock {
-	size_t size;  				/* size of memory */
+	size_t size;  		    /* size of memory */
 	struct MallocBlock* base;   /* point to base block */
 	struct MallocBlock* pre;    /* point to pre block */
-    struct MallocBlock* next;   /* point to next block */
-    pthread_t tid;				/* thread id */
-	int order; 					/* used for buddy allocation */
-    int isFree;					/* if the block is used */
-    int isLarge;				/* if the block is large block */
+    	struct MallocBlock* next;   /* point to next block */
+    	pthread_t tid;		    /* thread id */
+	int order; 		    /* used for buddy allocation */
+    	int isFree;		    /* if the block is used */
+    	int isLarge;	            /* if the block is large block */
 } MallocBlock;
 
 The header memory region and available memory region are consecutive. Acctually, available memory size of each block is MallocBlock->size - sizeof(MallocBlock);
