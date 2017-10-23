@@ -1,0 +1,39 @@
+My implementation of malloc family.
+
+Design overview:
+I use double linked list to manage memory block. The reason why I use double linked list is it allows us to make a fast delete and insertion. Every memory block has a header block. The definition of Header is:
+typedef struct MallocBlock {
+	size_t size;  				/* size of memory */
+	struct MallocBlock* base;   /* point to base block */
+	struct MallocBlock* pre;    /* point to pre block */
+    struct MallocBlock* next;   /* point to next block */
+    pthread_t tid;				/* thread id */
+	int order; 					/* used for buddy allocation */
+    int isFree;					/* if the block is used */
+    int isLarge;				/* if the block is large block */
+} MallocBlock;
+
+The header memory region and available memory region are consecutive. Acctually, available memory size of each block is MallocBlock->size - sizeof(MallocBlock);
+Everytime a thread allocates a new bin, I will assign MallocBlock->tid to the thread's id. When a thread calls malloc, I will look up memory blocks whose tid equals to the thread's. So each thread hold its own bins and allocates from its own arena.
+
+Implementaion:
+For large block allocation (size > 512), I use mmap() to malloc required size memory. When a large block free(void *ptr) is called, I will first find the block header by make ptr - sizeof(MallocBlock), then call munmap. It is very easy.
+
+For small block allocation (size <= 512), I'v implemented buddy allocation. I use MallocBlock *freeHeader[order] to manage memeory block with different order. Order determines the block size in the linked list. For example, if order is 8, it means there is a linked list whose header is freeHeader[8]. Every block size in the list is 1 << 8 (256). The range of order is from 6 (64) to 10 (1024).
+
+The key points of buddy allocation is split and merge. 
+For split, when a malloc request comes, 
+1. We first computer its order and try to get block in freeHeader[order] and return if succeed.
+2. If failed, we try to get a block in freeHeader[order + 1] and split this block into two parts. One of them for use, the other is inserted to corresponding list.
+3. If we can't find an available block in the highest order, we use sbrk() to query a large block memory (4 * PAGE_SIZE = 4096)
+4. We keep doing 1-3 until we find a block.
+
+For merge, when a free request commes,
+1. We first get its previous and next nodes to check whether its neighbor has the same order, pid and free status.
+2. If failed, we just insert the block to suitable list.
+3. If succeed, we merge the two block and update its header information.
+4. We keep doing 1-3 until reaching the highest order.
+
+Known bugs and errors.
+Although my implementation can pass test1-1, Sometimes free function gets calls whose ptr is NULL. I'm very confused and need more time to debug it.
+
